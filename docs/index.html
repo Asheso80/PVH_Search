@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>PVH Field Lookup</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#0A62C6">
+<style>
+:root{
+  --bg:#12161B; --panel:#1C232C; --panel2:#242E39; --line:#37434F;
+  --text:#F2F6FA; --dim:#A9B7C6; --faint:#7A8896;
+  --accent:#5FAEFF; --ok:#43D384; --warn:#F7BE4A; --bad:#FF6363;
+  --taxi:#F7BE4A; --limo:#B99BFF; --tour:#5FAEFF; --shuttle:#43D384;
+  --platebg:#0D1115; --plateline:#3A4653;
+  --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+body.light{
+  --bg:#EFF2F6; --panel:#FFFFFF; --panel2:#E7EBF0; --line:#CFD7DF;
+  --text:#131C26; --dim:#465666; --faint:#71808F;
+  --accent:#0A62C6; --ok:#0C8747; --warn:#9A6A08; --bad:#C42B2B;
+  --taxi:#8F6404; --limo:#6236C9; --tour:#0A62C6; --shuttle:#0C8747;
+  --platebg:#FFFFFF; --plateline:#8E9CAA;
+}
+body.light .t-Taxi{background:rgba(143,100,4,.12)}
+body.light .t-Limo{background:rgba(98,54,201,.10)}
+body.light .t-Tour{background:rgba(10,98,198,.10)}
+body.light .t-Shuttle{background:rgba(12,135,71,.12)}
+body.light .b-ok{background:rgba(12,135,71,.12)}
+body.light .b-warn{background:rgba(154,106,8,.13)}
+body.light .b-bad{background:rgba(196,43,43,.11)}
+body.light .alertbar{background:rgba(196,43,43,.10);border-color:rgba(196,43,43,.4)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);
+  font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  overscroll-behavior:none}
+#app{max-width:640px;margin:0 auto;min-height:100%;display:flex;flex-direction:column}
+
+/* header */
+header{position:sticky;top:0;z-index:10;background:var(--bg);
+  border-bottom:1px solid var(--line);padding:10px 12px 8px}
+.hrow{display:flex;align-items:center;gap:10px}
+.navbtn{flex:0 0 44px;height:44px;border:1px solid var(--line);border-radius:10px;
+  background:var(--panel);color:var(--text);font-size:20px;display:flex;
+  align-items:center;justify-content:center;cursor:pointer}
+.navbtn:active{background:var(--panel2)}
+.navbtn[disabled]{opacity:.3;pointer-events:none}
+h1{font-size:15px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;flex:1}
+h1 small{display:block;font-size:11px;font-weight:400;color:var(--faint);
+  letter-spacing:.02em;text-transform:none}
+#searchwrap{margin-top:8px;position:relative}
+#q{width:100%;height:48px;border:1px solid var(--line);border-radius:12px;
+  background:var(--panel);color:var(--text);font-size:17px;padding:0 44px 0 14px;
+  outline:none}
+#q:focus{border-color:var(--accent)}
+#clr{position:absolute;right:4px;top:4px;width:40px;height:40px;border:none;
+  background:none;color:var(--faint);font-size:20px;cursor:pointer;display:none}
+
+/* body */
+main{flex:1;padding:10px 12px 40px}
+.hint{color:var(--faint);font-size:13px;text-align:center;padding:26px 20px}
+.counts{color:var(--dim);font-size:12px;text-align:center;padding-top:6px}
+.stamp{color:var(--faint);font-size:11px;text-align:center;padding:14px 0 4px}
+.seclabel{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--faint);margin:16px 2px 6px}
+
+/* result cards */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:13px 12px;margin-bottom:8px;cursor:pointer;display:flex;gap:11px;
+  align-items:center;min-height:70px}
+.card:active{background:var(--panel2)}
+.deck{flex:0 0 52px;height:52px;border-radius:50%;border:2px solid var(--faint);
+  color:var(--text);display:flex;flex-direction:column;align-items:center;
+  justify-content:center;font-family:var(--mono);font-weight:700;font-size:17px;
+  line-height:1}
+.deck.taxi{border-color:var(--taxi);color:var(--taxi)}
+.deck.limo{border-color:var(--limo);color:var(--limo)}
+.deck.tour{border-color:var(--tour);color:var(--tour)}
+.deck.shuttle{border-color:var(--shuttle);color:var(--shuttle)}
+.deck span{font-size:8px;letter-spacing:.08em;font-weight:600;margin-bottom:2px}
+.deck.none{border-style:dashed;color:var(--faint);border-color:var(--line);font-size:11px}
+.opdot{flex:0 0 52px;height:52px;border-radius:50%;background:var(--panel2);
+  border:1px solid var(--line);display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:18px;color:var(--dim)}
+.cmain{flex:1;min-width:0}
+.cname{font-weight:600;font-size:16px;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.csub{color:var(--dim);font-size:13px;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;margin-top:1px}
+.crow2{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap}
+.plate{font-family:var(--mono);font-weight:700;font-size:13px;background:var(--platebg);
+  border:1px solid var(--plateline);border-radius:5px;padding:2px 7px;letter-spacing:.06em}
+.chip{font-size:11px;font-weight:700;letter-spacing:.05em;border-radius:5px;
+  padding:2px 7px;text-transform:uppercase}
+.t-Taxi{background:rgba(245,185,66,.14);color:var(--taxi)}
+.t-Limo{background:rgba(176,140,255,.14);color:var(--limo)}
+.t-Tour{background:rgba(77,163,255,.14);color:var(--tour)}
+.t-Shuttle{background:rgba(63,203,126,.14);color:var(--shuttle)}
+.chev{color:var(--faint);font-size:18px}
+
+/* status badges */
+.badge{display:inline-flex;align-items:center;gap:6px;border-radius:7px;
+  padding:5px 9px;font-size:12px;font-weight:700}
+.b-ok{background:rgba(63,203,126,.12);color:var(--ok)}
+.b-warn{background:rgba(245,185,66,.14);color:var(--warn)}
+.b-bad{background:rgba(255,93,93,.14);color:var(--bad)}
+.b-na{background:var(--panel2);color:var(--faint)}
+.badge b{font-weight:800}
+
+/* detail */
+.dhead{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  padding:16px;margin-bottom:10px}
+.dtop{display:flex;gap:14px;align-items:center}
+.dhead .deck{flex:0 0 66px;height:66px;font-size:22px}
+.dtitle{font-size:20px;font-weight:700;line-height:1.2}
+.dsub{color:var(--dim);font-size:14px;margin-top:2px}
+.bigplate{font-family:var(--mono);font-weight:800;font-size:22px;background:var(--platebg);
+  border:1.5px solid var(--plateline);border-radius:8px;padding:4px 12px;
+  letter-spacing:.1em;display:inline-block;margin-top:8px}
+.badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.alertbar{border-radius:10px;padding:10px 12px;font-weight:700;font-size:14px;
+  margin-bottom:10px;background:rgba(255,93,93,.14);color:var(--bad);
+  border:1px solid rgba(255,93,93,.35)}
+.grid{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  overflow:hidden;margin-bottom:10px}
+.grid .row{display:flex;padding:10px 14px;border-bottom:1px solid var(--line);
+  gap:12px}
+.grid .row:last-child{border-bottom:none}
+.grid .k{flex:0 0 44%;color:var(--dim);font-size:13px;padding-top:1px}
+.grid .v{flex:1;font-size:15px;font-weight:500;word-break:break-word}
+.grid .v.mono{font-family:var(--mono);font-size:14px;letter-spacing:.03em}
+.tap{cursor:pointer;border-bottom:1px dashed var(--faint)}
+.tap:active{color:var(--accent)}
+.copied{color:var(--ok)!important;border-bottom-color:var(--ok)!important}
+.link{color:var(--accent);cursor:pointer;text-decoration:none}
+.notes{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  padding:12px 14px;margin-bottom:10px;font-size:14px;white-space:pre-wrap;
+  color:var(--text);line-height:1.5}
+.empty{color:var(--faint);font-size:13px;padding:8px 2px}
+a.tel{color:var(--accent);text-decoration:none}
+.fchips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;
+  -webkit-overflow-scrolling:touch;scrollbar-width:none}
+.fchips::-webkit-scrollbar{display:none}
+.fchip{flex:0 0 auto;border:1px solid var(--line);background:var(--panel);
+  color:var(--dim);border-radius:20px;padding:7px 13px;font-size:13px;
+  font-weight:600;cursor:pointer;white-space:nowrap}
+.fchip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.browsebar{display:flex;gap:8px;margin-bottom:10px}
+.browsebar select{flex:1;height:42px;border:1px solid var(--line);border-radius:10px;
+  background:var(--panel);color:var(--text);font-size:14px;padding:0 10px;
+  -webkit-appearance:none;appearance:none}
+.cardbadges{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.cardbadges .badge{padding:3px 7px;font-size:11px}
+.copybtn{display:block;width:100%;padding:13px;border-radius:12px;
+  border:1px solid var(--line);background:var(--panel);color:var(--accent);
+  font-size:15px;font-weight:700;margin-bottom:10px;cursor:pointer}
+.copybtn:active{background:var(--panel2)}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="hrow">
+      <button class="navbtn" id="back" onclick="history.back()" style="display:none">&#8592;</button>
+      <h1>PVH Field Lookup<small id="stamp"></small></h1>
+      <button class="navbtn" id="theme" title="Toggle dark mode">&#9789;</button>
+    </div>
+    <div id="searchwrap">
+      <input id="q" type="search" placeholder="Deck # / plate / name / licence&#8230;"
+        autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
+      <button id="clr">&#10005;</button>
+    </div>
+  </header>
+  <main id="main"></main>
+</div>
+
+<script>
+"use strict";
+function boot(DB){
+const V = DB.vehicles, O = DB.operators;
+document.getElementById("stamp").textContent =
+  "Data: " + DB.built + " \u00B7 " + DB.counts.vehicles + " vehicles \u00B7 " + DB.counts.operators + " operators";
+
+/* ---------- search index ---------- */
+const alnum = s => (s||"").toString().toUpperCase().replace(/[^A-Z0-9]/g,"");
+const lc = s => (s||"").toString().toLowerCase();
+V.forEach((v,i)=>{v._i=i;
+  v._deck=alnum(v["Deck No"]); v._plate=alnum(v["Plate No"]); v._vin=alnum(v["VIN"]);
+  v._name=lc(v["Owner Last Name"])+" "+lc(v["Owner First Name"]);
+  v._biz=lc(v["Business Name"]); v._lic=alnum(v["Licence No"]);});
+O.forEach((o,i)=>{o._i=i;
+  o._name=lc(o["Last Name"])+" "+lc(o["First Name"])+" "+lc(o["Middle"]);
+  o._biz=lc(o["Business Name"]); o._lic=alnum(o["Licence Number"]);});
+
+function search(qRaw){
+  const q=qRaw.trim(); if(q.length<2) return null;
+  const qa=alnum(q), ql=lc(q);
+  const vres=[], ores=[];
+  for(const v of V){
+    let score=-1;
+    if(qa && v._deck && v._deck===qa) score=100;
+    else if(qa && v._plate && (v._plate===qa?1:0)) score=95;
+    else if(qa && v._plate && v._plate.startsWith(qa) && qa.length>=3) score=80;
+    else if(v._name.includes(ql)) score=60;
+    else if(v._biz.includes(ql)) score=50;
+    else if(qa && v._lic && v._lic===qa) score=90;
+    else if(qa.length>=5 && v._vin && v._vin.includes(qa)) score=70;
+    else if(qa && v._deck && v._deck.startsWith(qa) && qa.length<v._deck.length) score=40;
+    if(score>=0) vres.push([score,v]);
+  }
+  for(const o of O){
+    let score=-1;
+    if(o._name.includes(ql)) score=60;
+    else if(o._biz.includes(ql)) score=50;
+    else if(qa && o._lic && o._lic===qa) score=90;
+    if(score>=0) ores.push([score,o]);
+  }
+  vres.sort((a,b)=>b[0]-a[0]); ores.sort((a,b)=>b[0]-a[0]);
+  return {v:vres.map(x=>x[1]).slice(0,60), o:ores.map(x=>x[1]).slice(0,60)};
+}
+
+/* ---------- date status ---------- */
+function parseD(s){
+  if(!s) return null;
+  const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
+  return m? new Date(+m[3],+m[1]-1,+m[2]) : null;
+}
+function status(label,dateStr){
+  const d=parseD(dateStr);
+  if(!d) return '<span class="badge b-na">'+label+': \u2014</span>';
+  const days=Math.floor((d-new Date().setHours(0,0,0,0))/864e5);
+  if(days<0)  return '<span class="badge b-bad">'+label+' <b>EXPIRED</b> '+dateStr+'</span>';
+  if(days<=30)return '<span class="badge b-warn">'+label+' expires '+dateStr+'</span>';
+  return '<span class="badge b-ok">'+label+' valid to '+dateStr+'</span>';
+}
+
+/* ---------- rendering ---------- */
+const main=document.getElementById("main");
+const esc=s=>(s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const dash=s=>(s==null||s==="")?"\u2014":esc(s);
+
+function deckHTML(v,big){
+  const d=v["Deck No"];
+  const t=(v["Vehicle Type"]||"").toLowerCase();
+  if(d==null||d==="") return '<div class="deck none">NO<br>DECK</div>';
+  return '<div class="deck '+t+'"><span>DECK</span>'+esc(d)+'</div>';
+}
+function ownerName(v){
+  const n=[v["Owner First Name"],v["Owner Last Name"]].filter(Boolean).join(" ");
+  return n||v["Business Name"]||"\u2014";
+}
+function opName(o){
+  return [o["First Name"],o["Middle"],o["Last Name"]].filter(Boolean).join(" ")||"\u2014";
+}
+
+function vehCard(v,extra){
+  return '<div class="card" onclick="go(\'v/'+v._i+'\')">'+deckHTML(v)+
+    '<div class="cmain"><div class="cname">'+esc(v["Make Model"]||"Vehicle")+
+    (v["Vehicle Color"]?' \u00B7 '+esc(v["Vehicle Color"]):'')+'</div>'+
+    '<div class="csub">'+esc(ownerName(v))+(v["Business Name"]?' \u00B7 '+esc(v["Business Name"]):'')+'</div>'+
+    '<div class="crow2"><span class="chip t-'+esc(v["Vehicle Type"])+'">'+esc(v["Vehicle Type"])+'</span>'+
+    (v["Plate No"]?'<span class="plate">'+esc(v["Plate No"])+'</span>':'')+
+    '</div>'+(extra||'')+'</div><div class="chev">&#8250;</div></div>';
+}
+function opCard(o,extra){
+  const init=((o["First Name"]||" ")[0]+(o["Last Name"]||" ")[0]).toUpperCase();
+  const flag=(o["In Active"]===true||o["Cancelled"]===true);
+  return '<div class="card" onclick="go(\'o/'+o._i+'\')">'+
+    '<div class="opdot">'+esc(init)+'</div>'+
+    '<div class="cmain"><div class="cname">'+esc(opName(o))+'</div>'+
+    '<div class="csub">'+dash(o["Business Name"])+'</div>'+
+    '<div class="crow2"><span class="chip t-'+esc(o["Operator Type"])+'">'+esc(o["Operator Type"])+' operator</span>'+
+    (o["Licence Number"]?'<span class="plate">'+esc(o["Licence Number"])+'</span>':'')+
+    (flag?'<span class="badge b-bad">INACTIVE/CANCELLED</span>':'')+
+    '</div>'+(extra||'')+'</div><div class="chev">&#8250;</div></div>';
+}
+
+function daysPast(s){
+  const d=parseD(s); if(!d) return null;
+  const n=Math.floor((new Date().setHours(0,0,0,0)-d)/864e5);
+  return n>0?n:null;
+}
+function daysUntil(s){
+  const d=parseD(s); if(!d) return null;
+  const n=Math.floor((d-new Date().setHours(0,0,0,0))/864e5);
+  return n>=0?n:null;
+}
+function addYear(s){
+  const d=parseD(s); if(!d) return null;
+  const due=new Date(d.getFullYear()+1,d.getMonth(),d.getDate());
+  return String(due.getMonth()+1).padStart(2,"0")+"/"+String(due.getDate()).padStart(2,"0")+"/"+due.getFullYear();
+}
+function chkInto(out,soon,k,label,date){
+  if(date==null||parseD(date)==null){out.push({k:k,label:label,date:null,miss:1,w:1e9});return;}
+  const p=daysPast(date);
+  if(p){out.push({k:k,label:label,date:date,over:p,w:p});return;}
+  if(soon){const u=daysUntil(date); if(u!=null&&u<=30)out.push({k:k,label:label,date:date,soon:u,w:-1-u});}
+}
+function vehFlagList(v,soon){
+  const out=[];
+  chkInto(out,soon,"mvi","MVI",addYear(v["First MVIDate"]));
+  chkInto(out,soon,"permit","Permit",v["NSVehicle Permit Expiry"]);
+  chkInto(out,soon,"ins","Insurance",v["Insurance Expiry"]);
+  chkInto(out,soon,"vlic","Veh licence",v["Expiry Date"]);
+  return out;
+}
+function opFlagList(o,soon){
+  const out=[];
+  if(o["In Active"]===true||o["Cancelled"]===true){
+    out.push({k:"inactive",label:o["Cancelled"]===true?"Cancelled":"Inactive",date:null,over:0,w:0});
+    return out;
+  }
+  chkInto(out,soon,"olic","Op licence",o["Renewal Date"]);
+  chkInto(out,soon,"nsdl","NS DL",o["NSDLExpired Date"]);
+  return out;
+}
+const FILTERS=[["all","All"],["permit","Permit"],["ins","Insurance"],["vlic","Veh licence"],
+  ["mvi","MVI"],["olic","Op licence"],["nsdl","NS DL"],["inactive","Inactive"]];
+function buildFlagged(soon){
+  const vi=[],oi=[];
+  for(const v of V){const f=vehFlagList(v,soon); if(f.length)vi.push([v,f]);}
+  for(const o of O){const f=opFlagList(o,soon); if(f.length)oi.push([o,f]);}
+  return {vi,oi};
+}
+function flagBadges(f){
+  return '<div class="cardbadges">'+f.map(function(x){
+    if(x.miss)return '<span class="badge b-warn">'+x.label+' NONE ON FILE</span>';
+    if(x.soon!=null)return '<span class="badge b-warn">'+x.label+' in '+x.soon+'d</span>';
+    return '<span class="badge b-bad">'+x.label+(x.over>0?' '+x.over+'d over':'')+'</span>';
+  }).join("")+'</div>';
+}
+function renderFlags(fk,soon){
+  fk=fk||"all";
+  const all=buildFlagged(soon);
+  const cnt={all:all.vi.length+all.oi.length};
+  for(const[,f]of all.vi)for(const x of f)cnt[x.k]=(cnt[x.k]||0)+1;
+  for(const[,f]of all.oi)for(const x of f)cnt[x.k]=(cnt[x.k]||0)+1;
+  let vshow=all.vi,oshow=all.oi;
+  if(fk!=="all"){
+    vshow=all.vi.filter(([,f])=>f.some(x=>x.k===fk)).map(([v,f])=>[v,f.filter(x=>x.k===fk)]);
+    oshow=all.oi.filter(([,f])=>f.some(x=>x.k===fk)).map(([o,f])=>[o,f.filter(x=>x.k===fk)]);
+  }
+  const worst=f=>Math.max(...f.map(x=>x.w));
+  vshow.sort((a,b)=>worst(b[1])-worst(a[1]));
+  oshow.sort((a,b)=>worst(b[1])-worst(a[1]));
+  let h='<div class="fchips">'+FILTERS.map(([k,l])=>
+    '<div class="fchip'+(k===fk?" on":"")+'" onclick="go(\'flags/'+k+(soon?"/soon":"")+'\')">'+l+
+    ' \u00B7 '+(cnt[k]||0)+'</div>').join("")+
+    '<div class="fchip'+(soon?" on":"")+'" onclick="go(\'flags/'+fk+(soon?"":"/soon")+'\')">\u226430d '+(soon?"ON":"OFF")+'</div></div>';
+  if(vshow.length)h+='<div class="seclabel">Vehicles ('+vshow.length+')</div>'+
+    vshow.map(([v,f])=>vehCard(v,flagBadges(f))).join("");
+  if(oshow.length)h+='<div class="seclabel">Operators ('+oshow.length+')</div>'+
+    oshow.map(([o,f])=>opCard(o,flagBadges(f))).join("");
+  if(!vshow.length&&!oshow.length)h+='<div class="hint">Nothing flagged in this category.</div>';
+  main.innerHTML=h;
+}
+const RECENT=[];
+function noteRecent(id){
+  const ix=RECENT.indexOf(id); if(ix>-1)RECENT.splice(ix,1);
+  RECENT.unshift(id); if(RECENT.length>5)RECENT.length=5;
+}
+function statusText(label,date){
+  if(date==null||parseD(date)==null)return label+": none on file";
+  const p=daysPast(date); if(p)return label+": EXPIRED "+date+" ("+p+"d over)";
+  const u=daysUntil(date);
+  return label+": valid to "+date+(u!=null&&u<=30?" (in "+u+"d)":"");
+}
+function vehSummary(v){
+  return ["PVH VEHICLE \u2014 Deck "+(v["Deck No"]==null?"\u2014":v["Deck No"])+" / Plate "+(v["Plate No"]||"\u2014"),
+    [v["Vehicle Type"],v["v Year"],v["Make Model"],v["Vehicle Color"]].filter(Boolean).join(" "),
+    "Owner: "+ownerName(v)+(v["Business Name"]?" \u00B7 "+v["Business Name"]:""),
+    v["Owner Address"]?"Owner address: "+v["Owner Address"]:null,
+    (v._op!=null&&(O[v._op]["Cell Phone"]||O[v._op]["Phone"]))?"Owner phone (op. record): "+(O[v._op]["Cell Phone"]||O[v._op]["Phone"]):null,
+    "VIN: "+(v["VIN"]||"\u2014")+" \u00B7 Veh lic no: "+(v["Licence No"]||"\u2014"),
+    statusText("Permit",v["NSVehicle Permit Expiry"]),
+    statusText("Insurance",v["Insurance Expiry"]),
+    statusText("Veh licence",v["Expiry Date"]),
+    statusText("MVI due",addYear(v["First MVIDate"])),
+    "Data as of "+DB.built+" \u00B7 copied "+new Date().toLocaleString()].filter(x=>x!=null).join("\n");
+}
+function opSummary(o){
+  const inact=(o["In Active"]===true||o["Cancelled"]===true);
+  return ["PVH OPERATOR \u2014 "+opName(o)+" ("+(o["Operator Type"]||"")+")",
+    "Business: "+(o["Business Name"]||"\u2014"),
+    "Licence no: "+(o["Licence Number"]||"\u2014")+" \u00B7 Master no: "+(o["Master Number"]||"\u2014")+" \u00B7 ID: "+(o["ID"]==null?"\u2014":o["ID"]),
+    "Address: "+[o["Address1"],o["Address2"],o["City"],o["Postal Code"]].filter(Boolean).join(", "),
+    "Phone: "+(o["Phone"]||"\u2014")+" \u00B7 Cell: "+(o["Cell Phone"]||"\u2014"),
+    inact?("STATUS: "+(o["Cancelled"]===true?"CANCELLED":"INACTIVE")+" in system"):
+      statusText("Op licence",o["Renewal Date"])+"\n"+statusText("NS DL",o["NSDLExpired Date"]),
+    "Data as of "+DB.built+" \u00B7 copied "+new Date().toLocaleString()].join("\n");
+}
+function copyRec(kind,i,btn){
+  const t=kind==="v"?vehSummary(V[i]):opSummary(O[i]);
+  const done=()=>{btn.textContent="Copied";setTimeout(()=>{btn.textContent="Copy record summary";},1200);};
+  const fallback=()=>{
+    const ta=document.createElement("textarea");ta.value=t;ta.style.position="fixed";ta.style.opacity="0";
+    document.body.appendChild(ta);ta.focus();ta.select();
+    try{document.execCommand("copy");done();}catch(e){btn.textContent="Copy failed";}
+    document.body.removeChild(ta);};
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(done).catch(fallback);
+  }else fallback();
+}
+function recentCards(){
+  if(!RECENT.length)return "";
+  return '<div class="seclabel">Recent</div>'+RECENT.map(id=>{
+    const p=id.split("/");
+    return p[0]==="v"?vehCard(V[+p[1]]):opCard(O[+p[1]]);
+  }).join("");
+}
+var HFILTER={type:"",stat:""};
+const TYPE_OPTS=[["","All types"],["Taxi","Taxi"],["Limo","Limo"],["Tour","Tour"],["Shuttle","Shuttle"]];
+const STAT_OPTS=[["","Any status"],["expired","Any expired"],["permit","Permit exp"],["ins","Insurance exp"],
+  ["mvi","MVI overdue"],["vlic","Veh licence exp"],["ok","All valid"]];
+function vehMatchesStat(v,s){
+  if(!s)return true;
+  const fl=vehFlagList(v,false).filter(x=>!x.miss);
+  const keys=fl.map(x=>x.k);
+  if(s==="expired")return keys.length>0;
+  if(s==="ok")return keys.length===0;
+  return keys.indexOf(s)>-1;
+}
+function applyBrowseFilters(list){
+  return list.filter(v=>
+    (!HFILTER.type||v["Vehicle Type"]===HFILTER.type)&&
+    vehMatchesStat(v,HFILTER.stat));
+}
+function selectEl(id,opts,val){
+  return '<select id="'+id+'">'+opts.map(([k,l])=>
+    '<option value="'+k+'"'+(k===val?" selected":"")+'>'+l+'</option>').join("")+'</select>';
+}
+function renderHome(q){
+  const r=search(q||"");
+  if(!r){
+    if(HFILTER.type||HFILTER.stat){renderBrowse();return;}
+    const fl=buildFlagged(false), n=fl.vi.length+fl.oi.length;
+    const cnt={};
+    for(const v of V)for(const x of vehFlagList(v,false).filter(y=>!y.miss))cnt[x.k]=(cnt[x.k]||0)+1;
+    const shortcut=(k,label)=>cnt[k]?'<div class="fchip" onclick="go(\'flags/'+k+'\')">'+label+' \u00B7 '+cnt[k]+'</div>':'';
+    main.innerHTML='<div class="hint">Search by deck light number, plate, owner or operator name, business or licence number.</div>'+
+      '<div class="browsebar">'+selectEl("fType",TYPE_OPTS,HFILTER.type)+selectEl("fStat",STAT_OPTS,HFILTER.stat)+'</div>'+
+      (n?'<div class="card" onclick="go(\'flags\')">'+
+        '<div class="opdot" style="color:var(--bad);border-color:var(--bad)">&#9888;</div>'+
+        '<div class="cmain"><div class="cname">'+n+' flagged records</div>'+
+        '<div class="csub">Expired or missing: permits, insurance, licences, MVI \u00B7 inactive operators</div></div>'+
+        '<div class="chev">&#8250;</div></div>':'')+
+      '<div class="fchips" style="margin-top:8px">'+shortcut("permit","Permits")+shortcut("ins","Insurance")+
+        shortcut("mvi","MVI")+shortcut("vlic","Veh lic")+'</div>'+
+      recentCards()+
+      '<div class="counts">'+DB.counts.vehicles+' active vehicles \u00B7 '+DB.counts.operators+' active operators</div>'+
+      '<div class="stamp">Built '+esc(DB.built)+' from '+esc(DB.sources.vehicles)+' + '+esc(DB.sources.operators)+'</div>'+
+      (window.__SHELL__?'<div class="hint"><span class="link" onclick="window.__reimport()">Import new data\u2026</span></div>':'');
+    wireFilters();
+    return;
+  }
+  let h='<div class="counts">'+r.v.length+' vehicle'+(r.v.length===1?"":"s")+', '+r.o.length+' operator'+(r.o.length===1?"":"s")+'</div>';
+  if(r.v.length){h+='<div class="seclabel">Vehicles ('+r.v.length+')</div>'+r.v.map(v=>vehCard(v)).join("");}
+  if(r.o.length){h+='<div class="seclabel">Operators ('+r.o.length+')</div>'+r.o.map(o=>opCard(o)).join("");}
+  if(!r.v.length&&!r.o.length){
+    // U4: absence-as-signal
+    const aq=alnum(q); const looksPlate=aq.length>=2&&aq.length<=8&&/[0-9]/.test(aq)&&/^[A-Z0-9]+$/.test(aq);
+    h='<div class="alertbar" style="background:rgba(245,190,74,.14);color:var(--warn);border-color:rgba(245,190,74,.4)">'+
+      'No active record matches \u201C'+esc(q)+'\u201D as of '+esc(DB.built)+'.</div>'+
+      '<div class="hint">'+(looksPlate?
+        'A plate or deck not in the active list may be suspended, expired, transferred or never licensed \u2014 verify licensing status before clearing.':
+        'Check spelling, or try the plate / deck number instead.')+'</div>';
+  }
+  main.innerHTML=h;
+}
+function wireFilters(){
+  const t=document.getElementById("fType"), s=document.getElementById("fStat");
+  if(t)t.addEventListener("change",()=>{HFILTER.type=t.value;renderHome("");});
+  if(s)s.addEventListener("change",()=>{HFILTER.stat=s.value;renderHome("");});
+}
+var BSORT="over";
+function renderBrowse(){
+  let list=applyBrowseFilters(V.slice());
+  if(BSORT==="over")list.sort((a,b)=>{
+    const wa=Math.max(0,...vehFlagList(a,false).filter(x=>!x.miss).map(x=>x.w));
+    const wb=Math.max(0,...vehFlagList(b,false).filter(x=>!x.miss).map(x=>x.w));
+    return wb-wa;});
+  else if(BSORT==="deck")list.sort((a,b)=>String(a["Deck No"]||"~").localeCompare(String(b["Deck No"]||"~"),undefined,{numeric:true}));
+  else if(BSORT==="owner")list.sort((a,b)=>ownerName(a).localeCompare(ownerName(b)));
+  const tl=TYPE_OPTS.find(x=>x[0]===HFILTER.type), sl=STAT_OPTS.find(x=>x[0]===HFILTER.stat);
+  let h='<div class="browsebar">'+selectEl("fType",TYPE_OPTS,HFILTER.type)+selectEl("fStat",STAT_OPTS,HFILTER.stat)+'</div>'+
+    '<div class="fchips"><div class="fchip'+(BSORT==="over"?" on":"")+'" onclick="setSort(\'over\')">Most overdue</div>'+
+    '<div class="fchip'+(BSORT==="deck"?" on":"")+'" onclick="setSort(\'deck\')">Deck #</div>'+
+    '<div class="fchip'+(BSORT==="owner"?" on":"")+'" onclick="setSort(\'owner\')">Owner A\u2013Z</div></div>'+
+    '<div class="counts">'+list.length+' vehicle'+(list.length===1?"":"s")+
+      ' \u00B7 '+(tl?tl[1]:"")+(sl&&sl[0]?" \u00B7 "+sl[1]:"")+'</div>';
+  h+=list.length?list.map(v=>vehCard(v,statBadgesInline(v))).join(""):'<div class="hint">No vehicles match this filter.</div>';
+  main.innerHTML=h;
+  wireFilters();
+}
+function setSort(s){BSORT=s;renderBrowse();}
+function statBadgesInline(v){
+  const fl=vehFlagList(v,false).filter(x=>!x.miss);
+  if(!fl.length)return "";
+  return '<div class="cardbadges">'+fl.map(x=>'<span class="badge b-bad">'+x.label+(x.over>0?" "+x.over+"d":"")+'</span>').join("")+'</div>';
+}
+
+function row(k,v,mono){
+  return '<div class="row"><div class="k">'+k+'</div><div class="v'+(mono?' mono':'')+'">'+v+'</div></div>';
+}
+function copyField(el,text){
+  const done=()=>{const o=el.textContent;el.classList.add("copied");el.textContent=text+" \u2713";
+    setTimeout(()=>{el.classList.remove("copied");el.textContent=o;},1000);};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(done).catch(done);
+  else done();
+}
+function tapField(text){
+  const t=esc(text);
+  return '<span class="tap" onclick="copyField(this,\''+t.replace(/'/g,"\\'")+'\')">'+t+'</span>';
+}
+function telLink(p){
+  if(!p) return "\u2014";
+  const digits=String(p).replace(/[^0-9]/g,"");
+  return digits.length>=7?'<a class="tel" href="tel:'+digits+'">'+esc(p)+'</a>':esc(p);
+}
+
+function renderVehicle(i){
+  const v=V[i]; if(!v){renderHome("");return;}
+  noteRecent("v/"+i);
+  const key=(v["Owner Last Name"]||"").toUpperCase().trim()+"|"+(v["Owner First Name"]||"").toUpperCase().trim();
+  const others=V.filter(x=>x!==v &&
+    ((x["Owner Last Name"]||"").toUpperCase().trim()+"|"+(x["Owner First Name"]||"").toUpperCase().trim())===key && key!=="|");
+  const op=(v._op!=null)?O[v._op]:null;
+  let h='<div class="dhead"><div class="dtop">'+deckHTML(v,true)+
+    '<div><div class="dtitle">'+esc(v["Make Model"]||"Vehicle")+'</div>'+
+    '<div class="dsub">'+dash(v["Vehicle Color"])+' \u00B7 '+dash(v["v Year"])+
+    ' \u00B7 <span class="chip t-'+esc(v["Vehicle Type"])+'">'+esc(v["Vehicle Type"])+'</span></div>'+
+    (v["Plate No"]?'<div class="bigplate tap" onclick="copyField(this,\''+esc(v["Plate No"]).replace(/'/g,"\\'")+'\')">'+esc(v["Plate No"])+'</div>':'')+
+    '</div></div><div class="badges">'+
+    status("Permit",v["NSVehicle Permit Expiry"])+
+    status("Insurance",v["Insurance Expiry"])+
+    status("Veh licence",v["Expiry Date"])+
+    status("MVI due",addYear(v["First MVIDate"]))+
+    '</div></div>';
+  h+='<button class="copybtn" onclick="copyRec(\'v\','+i+',this)">Copy record summary</button>';
+  h+='<div class="grid">'+
+    row("Owner",op?('<span class="link" onclick="go(\'o/'+op._i+'\')">'+esc(ownerName(v))+' &#8250;</span>'):dash(ownerName(v)))+
+    (op&&(op["Cell Phone"]||op["Phone"])?row("Owner phone (op. record)",telLink(op["Cell Phone"]||op["Phone"])):"")+
+    row("Business",dash(v["Business Name"]))+
+    (v["Owner Address"]?row("Owner address",esc(v["Owner Address"])):"")+
+    row("Owner ID",dash(v["Owner ID"]))+
+    row("District",dash(v["District"]))+
+    row("VIN",v["VIN"]?tapField(v["VIN"]):"\u2014",1)+
+    row("Vehicle licence no",v["Licence No"]?tapField(v["Licence No"]):"\u2014",1)+
+    row("Last inspection",dash(v["Inspection Date"]))+
+    row("First MVI",dash(v["First MVIDate"]))+
+    row("MVI due (MVI + 1 yr)",dash(addYear(v["First MVIDate"])))+
+    row("Vehicle ID",dash(v["Vehicle ID"]))+
+    '</div>';
+  if(v["Notes"]) h+='<div class="seclabel">Notes</div><div class="notes">'+esc(v["Notes"])+'</div>';
+  if(others.length){
+    h+='<div class="seclabel">Other vehicles, same owner ('+others.length+')</div>'+others.map(vehCard).join("");
+  }
+  main.innerHTML=h;
+}
+
+function renderOperator(i){
+  const o=O[i]; if(!o){renderHome("");return;}
+  noteRecent("o/"+i);
+  const flag=(o["In Active"]===true||o["Cancelled"]===true);
+  let h="";
+  if(flag) h+='<div class="alertbar">&#9888; Licence flagged '+
+    (o["Cancelled"]===true?'CANCELLED':'INACTIVE')+' in system</div>';
+  h+='<div class="dhead"><div class="dtop"><div class="opdot" style="flex:0 0 66px;height:66px;font-size:22px">'+
+    esc(((o["First Name"]||" ")[0]+(o["Last Name"]||" ")[0]).toUpperCase())+'</div>'+
+    '<div><div class="dtitle">'+esc(opName(o))+'</div>'+
+    '<div class="dsub">'+dash(o["Business Name"])+' \u00B7 <span class="chip t-'+esc(o["Operator Type"])+'">'+
+    esc(o["Operator Type"])+' operator</span></div>'+
+    (o["Licence Number"]?'<div class="bigplate">'+esc(o["Licence Number"])+'</div>':'')+
+    '</div></div><div class="badges">'+
+    status("Op licence",o["Renewal Date"])+
+    status("NS DL",o["NSDLExpired Date"])+
+    '</div></div>';
+  const addr=[o["Address1"],o["Address2"],[o["City"],o["Province"],o["Postal Code"]].filter(Boolean).join(", ")]
+    .filter(Boolean).map(esc).join("<br>");
+  h+='<button class="copybtn" onclick="copyRec(\'o\','+i+',this)">Copy record summary</button>';
+  h+='<div class="grid">'+
+    row("Address",addr||"\u2014")+
+    row("Phone",telLink(o["Phone"]))+
+    row("Cell",telLink(o["Cell Phone"]))+
+    row("Master number",dash(o["Master Number"]),1)+
+    row("Operator ID",dash(o["ID"]))+
+    row("Licence year",dash(o["v Year"]))+
+    row("Approved",dash(o["Approval Date"]))+
+    row("District",dash(o["District"]))+
+    '</div>';
+  if(o["Notes"]) h+='<div class="seclabel">Notes</div><div class="notes">'+esc(o["Notes"])+'</div>';
+  const veh=(o._veh||[]).map(ix=>V[ix]).filter(Boolean);
+  h+='<div class="seclabel">Vehicles in this name ('+veh.length+')</div>';
+  h+=veh.length?veh.map(vehCard).join(""):'<div class="empty">No active vehicles registered under this exact name.</div>';
+  const fz=(o._vfz||[]).map(ix=>V[ix]).filter(Boolean);
+  if(fz.length)h+='<div class="seclabel">Possible matches \u2014 similar name, verify before relying on ('+fz.length+')</div>'+fz.map(vehCard).join("");
+  main.innerHTML=h;
+}
+
+/* ---------- routing ---------- */
+const q=document.getElementById("q"), clr=document.getElementById("clr");
+function go(route){location.hash="#/"+route;}
+function route(){
+  const h=location.hash.replace(/^#\/?/,"");
+  const m=/^(v|o)\/(\d+)$/.exec(h);
+  const fm=/^flags(?:\/([a-z]+))?(\/soon)?$/.exec(h);
+  window.scrollTo(0,0);
+  document.getElementById("back").style.display=(m||fm)?"flex":"none";
+  if(m){ if(m[1]==="v") renderVehicle(+m[2]); else renderOperator(+m[2]); }
+  else if(fm){ renderFlags(fm[1],!!fm[2]); }
+  else { renderHome(q.value); }
+}
+document.body.classList.add("light");
+document.getElementById("theme").addEventListener("click",()=>{
+  const light=document.body.classList.toggle("light");
+  document.getElementById("theme").innerHTML=light?"&#9789;":"&#9788;";
+});
+q.addEventListener("input",()=>{
+  clr.style.display=q.value?"block":"none";
+  if(location.hash && location.hash!=="#/") history.replaceState(null,"","#/");
+  renderHome(q.value);
+});
+clr.addEventListener("click",()=>{q.value="";clr.style.display="none";q.focus();renderHome("");});
+window.go=go;window.copyRec=copyRec;window.copyField=copyField;window.setSort=setSort;
+window.addEventListener("hashchange",route);
+route();
+}
+window.__SHELL__=true;
+if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(function(){});}
+function showImport(msg){
+  var m=document.getElementById("main");
+  m.innerHTML='<div class="hint" style="padding-top:50px">'+(msg||"No data loaded on this device yet.")+'</div>'+
+    '<label class="copybtn" style="text-align:center;display:block">Load PVH_data.json'+
+    '<input type="file" accept=".json,application/json" style="display:none" id="datafile"></label>'+
+    '<div class="stamp">Pick the PVH_data.json produced by the build script (OneDrive / Files).</div>';
+  document.getElementById("datafile").addEventListener("change",function(ev){
+    var f=ev.target.files[0]; if(!f)return;
+    var r=new FileReader();
+    r.onload=function(){
+      try{
+        var d=JSON.parse(r.result);
+        if(!d.vehicles||!d.operators)throw 0;
+        try{localStorage.setItem("pvh_data",r.result);}catch(e){}
+        boot(d);
+      }catch(e){showImport("That file is not a valid PVH data file. Try again.");}
+    };
+    r.readAsText(f);
+  });
+}
+window.__reimport=function(){showImport("Load the new PVH_data.json.");};
+(function(){
+  document.body.classList.add("light");
+  var saved=null;
+  try{saved=localStorage.getItem("pvh_data");}catch(e){}
+  if(saved){
+    try{boot(JSON.parse(saved));return;}
+    catch(e){try{localStorage.removeItem("pvh_data");}catch(_){}}
+  }
+  showImport();
+})();
+</script>
+</body>
+</html>

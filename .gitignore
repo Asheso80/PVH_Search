@@ -1,0 +1,11 @@
+# PII-bearing build outputs and source exports — never commit these.
+# docs/ (the PWA shell) is the only thing meant to be pushed to GitHub Pages.
+PVH_Field_App.html
+PVH_data.json
+*.xlsx
+
+# Local Claude Code settings
+.claude/
+
+# Python
+__pycache__/
